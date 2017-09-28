@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<head>
+    <meta  http-equiv="Content-Type" content="text/html; charset=utf-8" /> 
+    <title>test</title>    
+    <script type="text/javascript" src="d3.js"></script>  
+	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+	<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+	<style type="text/css">
+		body{
+		height: 100%;
+		}
+		.title{font-family:Arial,微软雅黑;font-size:20px;text-anchor:middle;}
+		.countryName{font-family:Arial,微软雅黑;font-size:15px;text-anchor:middle;}
+		.subTitle{font-family:Arial,宋体;font-size:12px;text-anchor:middle;fill:#666}
+		.axis path,
+		.axis line {
+			fill: none;
+			stroke: black;
+			shape-rendering: crispEdges;
+		}
+		.axis text {
+			font-family: sans-serif;
+			font-size: 11px;
+			fill:#999;
+		}
+		.inner_line path,
+		.inner_line line {
+			fill: none;
+			stroke:#E7E7E7;
+			shape-rendering: crispEdges;
+		}
+		.d3-tip {
+			line-height: 1;
+			font-weight: bold;
+			padding: 6px;
+			background: rgba(0, 0, 0, 0.6);
+			color: #fff;
+			border-radius: 1px;
+		}
+
+		/* Creates a small triangle extender for the tooltip */
+		.d3-tip:after {
+			box-sizing: border-box;
+			display: inline;
+			font-size: 10px;
+			width: 100%;
+			line-height: 1;
+			color: rgba(0, 0, 0, 0.8);
+			content: "\25BC";
+			position: absolute;
+			text-align: center;
+		}
+
+		/* Style northward tooltips differently */
+		.d3-tip.n:after {
+			margin: -1px 0 0 0;
+			top: 100%;
+			left: 0;
+		}
+		
+	</style>
+</head>    
+<body>
+	<div>
+		<select id="changeYear" onchange="selChange(this)" >
+	</div>
+	</select><br>
+	<div> 
+	<div class = "map" style="float:left">
+		<svg  id = "rectMap"  width="850" height="700">	</svg>
+    </div >
+	 <div class = "line" style="float:left">
+		<svg  id = "rectLine" width="600" height="400" ></svg>
+    </div>
+     <div class = "square" style="float:left">
+		<svg  id = "square" width="1400" height="2000" ></svg>
+    </div>
+	</div>
+<script>  
+	var width  = 900;
+	var height = 700;
+	var target = "China";
+	
+	var operationTime = 0;
+	var presentYear = 2000;
+	var internet = Object();
+	var inteYear = ["1990","1991","1992","1993","1994","1995","1996","1997","1998","1999",
+					"2000","2001","2002","2003","2004","2005","2006","2007","2008","2009",
+					"2010","2011"];
+	//readin csv 
+	d3.csv("internet_keychanged.csv",function(error,data){
+		for( var i=0; i<data.length; i++ ){  
+			var year = Object();
+			year["1990"] = data[i].Ninety; 
+			year["1991"] = data[i].NinetyOne;
+			year["1992"] = data[i].NinetyTwo;
+			year["1993"] = data[i].NinetyThree;
+			year["1994"] = data[i].NinetyFour;
+			year["1995"] = data[i].NinetyFive;
+			year["1996"] = data[i].NinetySix;
+			year["1997"] = data[i].NinetySeven;
+			year["1998"] = data[i].NinetyEight;
+			year["1999"] = data[i].NinetyNine;
+			year["2000"] = data[i].Zero;
+			year["2001"] = data[i].One;
+			year["2002"] = data[i].Two;
+			year["2003"] = data[i].Three;
+			year["2004"] = data[i].Four;
+			year["2005"] = data[i].Five;
+			year["2006"] = data[i].Six;
+			year["2007"] = data[i].Seven;
+			year["2008"] = data[i].Eight;
+			year["2009"] = data[i].Nine;
+			year["2010"] = data[i].Ten;
+			year["2011"] = data[i].Eleven;
+
+			internet[data[i].Country] = year;	
+		}
+		createOption();
+		runMap();
+		run();
+	});
+	function createOption(){
+		var obj = document.getElementById('changeYear'); 
+		for(year in internet["China"]){ 
+			obj.options.add(new Option(year,year));
+		}
+		obj.options[10].selected = true;
+	}
+	function selChange(obj){
+		var year = obj.options[obj.selectedIndex].value;
+		presentYear = year;
+		runMap();
+	}
+// 	Check Stage: blind，start，grow，steady, missing
+	function checkStage(year1,year2,name){
+
+			y1 = Number(internet[name][year1]);
+			y2 = Number(internet[name][year2]);
+
+		if(y1 == 0 ){
+			if(y2 == 0){
+				//blind
+				var stage = stageColor[0];
+			}
+			else{
+				// start
+				var stage = stageColor[1];
+			}
+		}
+		if(y1){
+			if(y1<1){
+				//start
+				var stage = stageColor[1];
+			}
+			else{
+			// leap
+			if(y2-y1 >= 20){
+				var stage = stageColor[2];
+			}
+			else{
+				// grow
+				var stage =stageColor[3];
+			}
+		}
+		}
+
+		if(y2>0 & y2<y1){
+			// decrease
+			var stage = stageColor[4];
+		}
+		return stage;
+	};
+
+	// 国家小方块
+	function countrySquare( rgb, x, y, name){
+		svg_heatmap.append('rect')
+				.attr('x', x.toString())
+				.attr('y', y.toString())
+				.attr('width',squareWidth-2)
+				.attr('height',squareHeight)
+				.attr('fill',rgb);
+	}	
+
+	// 画地图	
+	function runMap(){
+		
+		var svg_map = d3.select("#rectMap")
+					.attr("width", width)
+					.attr("height", height)
+					.append("g")
+					.attr("transform", "translate(0,0)");
+	
+		svg_map.append("g")
+				.append("rect")
+				.attr("x",0)
+				.attr("y",0)
+				.attr("width",width)
+				.attr("height",720)
+				.style("fill","#FFF")
+				.style("stroke-width",2)
+				.style("stroke","#E7E7E7");
+					
+		var projection = d3.geo.mercator()
+							.center([0, 31])
+							.scale(140)
+							.translate([width/2, height/2]);
+		
+		var path = d3.geo.path()
+					.projection(projection);
+		//这里可以有动态效果，一方面heatmap 国家每五年的stage，为blind，start，grow，steady
+		//另一方面可以 heatmap 国家每五年网络用户的数目...这个功能还可以用slider bar 完成	
+		//	
+		d3.json("world_simpp.json", function(error, root){	
+			var countryColor =[];
+			for (var i = 0; i<root.features.length; i++){
+				var name = root.features[i].properties.SOVEREIGNT;
+				var economy = parseInt(root.features[i].properties.ECONOMY[0]);
+				var cinfo = [];
+				if (typeof internet[name] === 'undefined'){
+					countryColor[name] = 0;
+				}
+				// 国家经济状况
+				if (internet[name]){
+					cinfo['name']= name;
+					if (countryInfo[name]){	
+						if (countryInfo[name]['economy'] > economy){
+							ecoCount[parseInt(cinfo['economy']-1)]--;
+							cinfo['economy'] = economy;
+							ecoCount[parseInt(cinfo['economy']-1)]++;
+						}else{
+							cinfo['economy'] = countryInfo[name]['economy'];
+						};
+					
+					}else{
+						cinfo['economy'] = economy;
+						ecoCount[parseInt(cinfo['economy']-1)]++;
+					}
+
+					// 网络发展阶段
+					cinfo["90-95"] = checkStage(1990,1995,name);
+					cinfo["96-00"] = checkStage(1996,2000,name);
+					cinfo["01-05"] = checkStage(2001,2005,name);
+					cinfo["06-11"] = checkStage(2006,2011,name);
+
+					countryInfo[name] = cinfo;
+					//console.log(presentYear);
+					var value = internet[name][presentYear];
+					countryColor[name] = value;			
+				}
+			}
+
+			// 下面这段面目狰狞的代码是用来画heatmap小方格的 = =
+			//var ecoCC = [0,0,0,0,0,0,0];
+			if(operationTime <= 1){
+				for(name in countryInfo){
+				var y = parseInt(countryInfo[name]['economy']);
+				ecoCC[y-1]++;
+				countrySquare(countryInfo[name]['90-95'],(ecoCC[y-1]* squareWidth+ 28).toString(), (yOffset[y-1]+yCoord[0]).toString(),name);
+				countrySquare(countryInfo[name]['96-00'],(ecoCC[y-1]* squareWidth+28).toString(), (yOffset[y-1]+yCoord[1]).toString(),name);
+				countrySquare(countryInfo[name]['01-05'],(ecoCC[y-1]* squareWidth+28).toString(), (yOffset[y-1]+yCoord[2]).toString(),name);
+				countrySquare(countryInfo[name]['06-11'],(ecoCC[y-1]* squareWidth+28).toString(), (yOffset[y-1]+yCoord[3]).toString(),name);
+				cName[y-1].push(name);
+				
+				}
+			}
+			
+
+			heatmapYAxis();
+			var minvalue = 0;
+			var maxvalue = 100;
+			// 调用D3 tips 
+			var tip = d3.tip()
+			  .attr('class', 'd3-tip')
+			  .offset([-10, 0])
+			  .html(function(d) {
+				return "<strong>Percentage:</strong> <span style='color:red'>" + d.properties.SOVEREIGNT + "</span>";
+			  })
+			
+			svg_map.call(tip)
+			//定义一个线性比例尺，将最小值和最大值之间的值映射到[0, 1]
+			var linear = d3.scale.linear()
+							.domain([minvalue, maxvalue])
+							.range([0, 1]);
+
+			//定义最小值和最大值对应的颜色
+			var a = d3.rgb(255,255,255,0.7);
+			var b = d3.rgb(8,46,84,0.7);	//蓝色
+			 
+			//颜色插值函数
+			var computeColor = d3.interpolate(a,b);
+			
+			var provinces = svg_map.selectAll("path")
+				.data( root.features )
+				.enter()
+				.append("path")
+				.attr("stroke","#000")
+				.attr("stroke-width",1)
+				.attr("d", path )
+				.attr("fill",function(d,i){
+						var t = linear (countryColor[d.properties.SOVEREIGNT]);
+						//var t = linear(internet.Australia["2000"]);
+						var color = computeColor(t);
+						return color.toString();
+					})
+				.on("mousedown",function(d,i){
+					target = d.properties.SOVEREIGNT;
+					run();
+
+				})
+
+				.on('mouseover', tip.show)
+				.on('mouseout', tip.hide);
+
+
+			//定义一个线性渐变
+			var defs = svg_map.append("defs");
+
+			var linearGradient = defs.append("linearGradient")
+									.attr("id","linearColor")
+									.attr("x1","0%")
+									.attr("y1","0%")
+									.attr("x2","100%")
+									.attr("y2","0%");
+
+			var stop1 = linearGradient.append("stop")
+									.attr("offset","0%")
+									.style("stop-color",a.toString());
+
+			var stop2 = linearGradient.append("stop")
+							.attr("offset","100%")
+							.style("stop-color",b.toString());
+
+			//添加一个矩形，并应用线性渐变
+			var colorRect = svg_map.append("rect")
+							.attr("x", 20)
+							.attr("y", 600)
+							.attr("width", 140)
+							.attr("height", 30)
+							.style("fill","url(#" + linearGradient.attr("id") + ")");
+
+			//添加文字
+			var valueText = svg_map.append('text')
+								.attr('class','valueText')
+								.attr("x", 15)
+								.attr('y',590)
+								.attr('font-size','20px')
+								//.attr('dy','-o.3em')
+								.text('Growth in 20 Years')
+			var minValueText = svg_map.append("text")
+								.attr("class","valueText")
+								.attr("x", 17)
+								.attr("y", 655)
+								.attr("dy", "-0.3em")
+								.text('0');
+
+			var maxValueText = svg_map.append("text")
+								.attr("class","valueText")
+								.attr("x", 130)
+								.attr("y", 655)
+								.attr("dy", "-0.3em")
+								.text("100%");
+		//read in world_map ends 
+		});	
+		operationTime += 1;
+	}
+	// 有没有现成的等差数列那种东西啊？我就不用自己写了== 像 Matlab 里 linear interval 什么的那种
+	// 貌似scale 就可以完成这个功能哎？但我还是没有学会
+	var internet = Object();
+	var countryInfo = Object();	
+	var ecoCount = [0,0,0,0,0,0,0];
+	var ecoCC = [0,0,0,0,0,0,0];
+	var ecoLabel=["Developed in G7",'Developed Region: nonG7','Emerging Region : BRIC','Emerging Region : MIKT','Emerging Region : G20','Developing Region','Least Developed Region'];
+	var stageColor = ["rgb(135,206,235)","rgb(51,161,201)","rgb(8,46,84)","rgb(61,89,171)","rgb(192,192,192)"];
+	var yOffset = [160,420,660,880,1100,1320,1580];
+	var yCoord = [96, 64, 32,0];
+	var squareWidth = 15;
+	var squareHeight = 30;
+
+	// 一定有更好的方法替代下面这种愚蠢的定义
+	var c1= [];
+	var c2= [];
+	var c3= [];
+	var c4= [];
+	var c5= [];
+	var c6= [];
+	var c7= [];
+	var cName = [c1,c2,c3,c4,c5,c6,c7];
+
+	//heatmap 画布，背景，标题，坐标轴
+	// 有没有那种用selectAll的方法一下子把所有的坐标轴都画出来的方法啊？
+	var svg_heatmap=d3.select("#square")
+			.append("g")
+			.attr("transform", "translate(0,0)");
+	//heatmap 画布背景
+	svg_heatmap.append("g")
+		.append("rect")
+		.attr("x",0)
+		.attr("y",0)
+		.attr("width",'100%')
+		.attr("height",'100%')
+		.style("fill","rgb(240,255,255")
+		.style("stroke-width",2)
+		.style("stroke","#E7E7E7");
+	// heatmap 画布标题
+	var heatTitle="Stage of Interet Population Deveopment";
+
+		svg_heatmap.append("g")
+			.append("text")
+			.text(heatTitle)
+			.attr("class","title")
+			.attr("x",200)
+			.attr("y",30);
+
+	// heatmap 坐标轴
+	function heatmapYAxis(){
+		
+		if(operationTime <= 1){
+			console.log(operationTime);
+			// 国家小方块参照
+			var squareStandard = [
+				{"color": stageColor[0], "x": 40, "y": 60 ,"lable": "Blind"},
+				{"color": stageColor[1], "x": 80, "y": 60 ,"lable": "Start"},
+				{"color": stageColor[2], "x": 120, "y": 60 ,"lable": "Leap"},
+				{"color": stageColor[3], "x": 160, "y": 60 ,"lable": "Grow"},
+				{"color": stageColor[4], "x": 200, "y": 60 ,"lable": "Decrease"}
+			];
+
+			var squareS = svg_heatmap.selectAll("Ssquare")
+								.data(squareStandard)
+								.enter()
+								.append("rect");
+
+			//Add the circle attributes
+			var ssAttributes = squareS
+					   .attr("x", function (d) { return d.x })
+					   .attr("y", function (d) { return d.y })
+					   .attr("width" , squareWidth.toString())
+					   .attr('height', squareHeight.toString())
+					   .style("fill", function (d) { return d.color});
+
+			var textSquare = svg_heatmap.selectAll('Stext')
+								.data(squareStandard)
+								.enter()
+								.append('text');
+
+			var textSlabel = textSquare
+								.attr("x", function(d){return d.x-10})
+								.attr('y', function(d){return d.y+50})
+								.text(function(d){return d.lable})
+
+
+			for(j=0; j<7; j++){
+				// subtitle	
+				svg_heatmap.append("g")
+						.append('text')
+						.text(ecoLabel[j])
+						.attr("font-family", "sans-serif")
+						.attr("font-size", "15px")
+						//.attr("class","subTitle")
+						.attr("x",60)
+						.attr("y",yOffset[j]-10);
+
+
+				var xScale = d3.scale.ordinal()
+								.domain(cName[j].map( function (d){ return d; }))
+								.rangeBands([44,46 + squareWidth* ecoCC[j]], 0.2);
+
+				var xAxis = d3.svg.axis()
+								.scale(xScale)
+								.orient("bottom")
+								.outerTickSize(0);
+				
+				var yScale = d3.scale.linear()
+								.domain(["2010","1990"])
+								.range([yOffset[j],(yOffset[j])+125]);
+				
+				//定义纵轴
+				var yAxis = d3.svg.axis()
+								.scale(yScale)
+								.orient("left")
+								.tickValues(["2010","2005","2000","1995","1990"]);
+
+			
+				var xAxisG = svg_heatmap.append("g")
+					.attr("class", "x axis")
+					.attr("transform", "translate(-3," + (yOffset[j]+125)+ ")")
+					.call(xAxis)
+					.selectAll("text");
+				
+				xAxisG
+				  .attr("transform", "rotate(30)" )
+				  .style("text-anchor","start");
+
+						
+				//添加y轴
+				svg_heatmap.append("g")
+					  .attr("class","axis")
+					  .attr("transform", "translate(44,0)")
+					  .call(yAxis)
+					  .selectAll("text")
+					  .text(function(d,i){return d;});
+		//定义纵轴
+			}
+		}
+	}
+
+	function run(){			
+		var w=619;
+		var h=300;
+		var padding=30;
+		//用一个变量存储标题和副标题的高度，如果没有标题什么的，就为0
+		var head_height=padding;
+		var title="Population of Internet Users (Max 100%)";
+		var subTitle="1990--2011";
+		//用一个变量计算底部的高度，如果不是多系列，就为0
+		var foot_height=padding;
+
+		//定义画布
+		var svg=d3.select("#rectLine")
+				.append("g")
+				.attr("transform", "translate(0,0)");
+				
+		//添加背景
+		svg.append("g")
+			.append("rect")
+			.attr("x",0)
+			.attr("y",0)
+			.attr("width",w)
+			.attr("height",h)
+			.style("fill","#FFF")
+			.style("stroke-width",2)
+			.style("stroke","#E7E7E7");
+			
+		//添加标题
+		if(title!=""){
+			svg.append("g")
+				.append("text")
+				.text(title)
+				.attr("class","title")
+				.attr("x",w/2)
+				.attr("y",head_height);
+			head_height+=30;
+		}
+		//添加副标题
+		if(subTitle!=""){
+			svg.append("g")
+				.append("text")
+				.text(subTitle)
+				.attr("class","subTitle")
+				.attr("x",w/2)
+				.attr("y",head_height);
+		}
+		svg.append("g")
+				.append("text")
+				.text("Country:")
+				.attr("class","countryName")
+				.attr("x",w/1.5)
+				.attr("y",head_height);
+				head_height+=20;
+		svg.append("g")
+				.append("text")
+				.text(target)
+				.attr("class","countryName")
+				.attr("x",w/1.35)
+				.attr("y",head_height)
+				head_height+=20;
+		
+		//横坐标轴比例尺
+		var xScale = d3.scale.linear()
+				.domain([1990,2011])
+				.range([padding,w-padding]);
+		//纵坐标轴比例尺
+		var yScale = d3.scale.linear()
+				.domain([0,100])
+				.range([h-foot_height,head_height]);
+		
+		//定义横轴网格线
+		var xInner = d3.svg.axis()
+					.scale(xScale)
+					.tickSize(-(h-head_height-foot_height),0,0)
+					.orient("bottom")
+					.ticks(22);
+		//添加横轴网格线
+		svg.append("g")
+			.attr("class","inner_line")
+			.attr("transform", "translate(0," + (h - padding) + ")")
+			.call(xInner)
+			.selectAll("text")
+			.text("");
+		
+		//定义纵轴网格线
+		var yInner = d3.svg.axis()
+					.scale(yScale)
+					.tickSize(-(w-padding*2),0,0)
+					.tickFormat("")
+					.orient("left")
+					.ticks(10);
+		//添加纵轴网格线
+		var yBar = svg.append("g")
+					.attr("class", "inner_line")
+					.attr("transform", "translate("+padding+",0)")
+					.call(yInner);
+		
+		//定义横轴
+		var xAxis = d3.svg.axis()
+					.scale(xScale)
+					.orient("bottom")
+					.ticks(22);
+		//添加横坐标轴并通过编号获取对应的横轴标签
+		var xBar=svg.append("g")
+					.attr("class","axis")
+					.attr("transform", "translate(0," + (h - padding) + ")")
+					.call(xAxis)
+					.selectAll("text")
+					.text(function(d,i){return d;});
+		//定义纵轴
+		var yAxis = d3.svg.axis()
+					.scale(yScale)
+					.orient("left")
+					.ticks(10);
+		//添加纵轴
+		// 我咋没看出来这里绑定的数据是啥呢 = =
+		var yBar=svg.append("g")
+					.attr("class", "axis")
+					.attr("transform", "translate("+padding+",0)")
+					.call(yAxis)
+					.selectAll("text")
+					.text(function(d,i){return d;});
+		
+		var dataset = [];
+		for(var year in internet[target]){
+			var percentages = [];
+			percentages["year"] = year;
+			percentages["percentage"] = internet[target][year];
+			dataset.push(percentages);
+		}
+		
+		var tip = d3.tip()
+		  .attr('class', 'd3-tip')
+		  .offset([-10, 0])
+		  .html(function(d) {
+			return "<strong>Percentage:</strong> <span style='color:red'>" + d.percentage + "</span>";
+		  })
+		
+		svg.call(tip)
+				  
+		//添加折线
+		var line = d3.svg.line()
+					.x(function(d){return xScale(d.year);})
+					.y(function(d){return yScale(d.percentage);})
+					.interpolate('monotone');
+			
+		var path=svg.append("path")
+				.attr("d", line(dataset))
+				.style("fill","#F00")
+				.style("fill","none")
+				.style("stroke-width",2)
+				.style("stroke","#09F")
+				.style("stroke-opacity",0.9);
+		
+		//添加系列的小圆点
+		svg.selectAll("circle")
+			.data(dataset)
+			.enter()
+			.append("circle")
+			.attr("cx", function(d) {
+				return xScale(d.year);
+			})
+			.attr("cy", function(d) {
+				return yScale(d.percentage);
+			})
+			.attr("r",3)
+			.attr("fill","#09F")
+			.on('mouseover', tip.show)
+			.on('mouseout', tip.hide);
+	// Seems that all end here
+	}
+
+</script>
+</body>
+</html>
